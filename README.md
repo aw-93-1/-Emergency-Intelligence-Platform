@@ -13,8 +13,8 @@
 [![Leaflet GIS](https://img.shields.io/badge/Leaflet_GIS-199900?style=for-the-badge&logo=leaflet&logoColor=white)](https://leafletjs.com/)
 [![Alibaba Qwen](https://img.shields.io/badge/Alibaba_Qwen--2.5_%26_VL-FF6A00?style=for-the-badge&logo=alibabacloud&logoColor=white)](https://github.com/QwenLM)
 [![Copernicus GloFAS](https://img.shields.io/badge/ESA_Copernicus_GloFAS-003399?style=for-the-badge&logo=european-space-agency&logoColor=white)](https://www.globalfloods.eu/)
-[![Vercel Deployment](https://img.shields.io/badge/Deployed_on_Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vercel.com/)
-[![Render Deployment](https://img.shields.io/badge/Deployed_on_Render-46E3B7?style=for-the-badge&logo=render&logoColor=black)](https://render.com/)
+[![Vercel Deployment](https://img.shields.io/badge/Deployed_on_Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://emergency-intelligence-platform-one.vercel.app/)
+[![Render Deployment](https://img.shields.io/badge/Deployed_on_Render-46E3B7?style=for-the-badge&logo=render&logoColor=black)](https://emergency-intelligence-platform.onrender.com)
 
 </div>
 
@@ -28,7 +28,7 @@
 
 | Component | Platform | Status | URL |
 | :--- | :--- | :--- | :--- |
-| **Frontend Web Application** | **Vercel** | [![Vercel](https://img.shields.io/badge/Vercel-Operational-black?logo=vercel)](https://emergency-intelligence-platform.vercel.app) | [emergency-intelligence-platform.vercel.app](https://emergency-intelligence-platform-one.vercel.app/) |
+| **Frontend Web Application** | **Vercel** | [![Vercel](https://img.shields.io/badge/Vercel-Operational-black?logo=vercel)](https://emergency-intelligence-platform-one.vercel.app/) | [emergency-intelligence-platform-one.vercel.app](https://emergency-intelligence-platform-one.vercel.app/) |
 | **Backend REST & WebSocket API** | **Render** | [![Render](https://img.shields.io/badge/Render-Live-46E3B7?logo=render&logoColor=black)](https://emergency-intelligence-platform.onrender.com) | [emergency-intelligence-platform.onrender.com](https://emergency-intelligence-platform.onrender.com) |
 
 ---

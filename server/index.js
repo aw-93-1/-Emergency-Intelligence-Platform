@@ -186,7 +186,7 @@ app.get('/', (req, res) => {
       </div>
     </div>
 
-    <a href="https://emergency-intelligence-platform.vercel.app" class="btn" id="frontendLink">Launch Web Application (Frontend) →</a>
+    <a href="https://emergency-intelligence-platform-one.vercel.app/" class="btn" id="frontendLink">Launch Web Application (Frontend) →</a>
     
     <div class="sub">
       GitHub: <a href="https://github.com/aw9103/-Emergency-Intelligence-Platform" target="_blank">aw9103/-Emergency-Intelligence-Platform</a>
