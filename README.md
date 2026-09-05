@@ -28,7 +28,7 @@
 
 | Component | Platform | Status | URL |
 | :--- | :--- | :--- | :--- |
-| **Frontend Web Application** | **Vercel** | [![Vercel](https://img.shields.io/badge/Vercel-Operational-black?logo=vercel)](https://emergency-intelligence-platform.vercel.app) | [emergency-intelligence-platform.vercel.app](https://emergency-intelligence-platform.vercel.app) |
+| **Frontend Web Application** | **Vercel** | [![Vercel](https://img.shields.io/badge/Vercel-Operational-black?logo=vercel)](https://emergency-intelligence-platform.vercel.app) | [emergency-intelligence-platform.vercel.app](https://emergency-intelligence-platform-one.vercel.app/) |
 | **Backend REST & WebSocket API** | **Render** | [![Render](https://img.shields.io/badge/Render-Live-46E3B7?logo=render&logoColor=black)](https://emergency-intelligence-platform.onrender.com) | [emergency-intelligence-platform.onrender.com](https://emergency-intelligence-platform.onrender.com) |
 
 ---
