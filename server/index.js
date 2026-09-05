@@ -44,6 +44,158 @@ app.use(cors({
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
+app.get('/', (req, res) => {
+  if (req.headers.accept && req.headers.accept.includes('application/json') && !req.headers.accept.includes('text/html')) {
+    return res.json({
+      status: 'OPERATIONAL',
+      platform: 'CrisisMap Pakistan - Autonomous Emergency Intelligence Platform API',
+      version: '2.5.0',
+      deployment: 'Render Cloud (Node.js 20)',
+      endpoints: {
+        liveData: '/api/live-data',
+        weather: '/api/weather',
+        qwenChat: '/api/qwen-chat',
+        databaseStatus: '/api/database/status',
+        visionStatus: '/api/vision/status'
+      }
+    });
+  }
+
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CrisisMap Pakistan — EOC API Gateway</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: #080d1a;
+      color: #f1f5f9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    .card {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-top: 4px solid #ef4444;
+      border-radius: 16px;
+      padding: 36px;
+      max-width: 580px;
+      width: 90%;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #34d399;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      text-transform: uppercase;
+      font-family: monospace;
+    }
+    .badge .dot {
+      width: 8px;
+      height: 8px;
+      background: #10b981;
+      border-radius: 50%;
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
+    h1 {
+      margin: 16px 0 8px 0;
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+    h1 span { color: #ef4444; }
+    p { color: #94a3b8; font-size: 14px; line-height: 1.6; margin: 0 0 20px 0; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+    .item {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-family: monospace;
+      font-size: 12px;
+    }
+    .item strong { color: #38bdf8; display: block; font-size: 10px; text-transform: uppercase; margin-bottom: 2px; }
+    .btn {
+      display: block;
+      width: 100%;
+      box-sizing: border-box;
+      text-align: center;
+      background: #ef4444;
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 14px;
+      padding: 12px 20px;
+      border-radius: 10px;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .btn:hover { background: #dc2626; transform: translateY(-1px); }
+    .sub {
+      text-align: center;
+      font-size: 11px;
+      color: #64748b;
+      margin-top: 14px;
+      font-family: monospace;
+    }
+    .sub a { color: #94a3b8; text-decoration: none; }
+    .sub a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="badge"><span class="dot"></span> EOC Backend Operational</div>
+    <h1><span>CRISIS</span>MAP PAKISTAN API</h1>
+    <p>Autonomous Emergency Operations Center REST API & WebSocket Gateway hosted on Render. Ingesting live satellite meteorology, Copernicus GloFAS river telemetry, and Qwen-2.5 decision intelligence.</p>
+    
+    <div class="grid">
+      <div class="item">
+        <strong>Runtime Engine</strong>
+        Node.js 20 • Express 4
+      </div>
+      <div class="item">
+        <strong>Real-Time Gateway</strong>
+        Socket.io Bi-Directional
+      </div>
+      <div class="item">
+        <strong>AI Copilot Endpoint</strong>
+        POST /api/qwen-chat
+      </div>
+      <div class="item">
+        <strong>Hydrology Feed</strong>
+        ESA Copernicus GloFAS
+      </div>
+    </div>
+
+    <a href="https://emergency-intelligence-platform.vercel.app" class="btn" id="frontendLink">Launch Web Application (Frontend) →</a>
+    
+    <div class="sub">
+      GitHub: <a href="https://github.com/aw9103/-Emergency-Intelligence-Platform" target="_blank">aw9103/-Emergency-Intelligence-Platform</a>
+    </div>
+  </div>
+</body>
+</html>`);
+});
+
 async function getRadarData() {
   const response = await fetch('https://api.rainviewer.com/public/weather-maps.json');
   if (!response.ok) throw new Error(`Radar API error: ${response.status}`);
