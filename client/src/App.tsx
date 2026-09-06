@@ -27,7 +27,8 @@ import {
   Bot,
   Eye,
   Sparkles,
-  X
+  X,
+  HeartPulse
 } from 'lucide-react';
 
 function DashboardContent({
@@ -45,6 +46,8 @@ function DashboardContent({
     radar,
     intelLoading,
     setHighlightedCoords,
+    calculateSafeRoute,
+    reserveHospitalBed,
     latestIncomingSos,
     clearLatestIncomingSos
   } = useCrisis();
@@ -75,12 +78,28 @@ function DashboardContent({
     setIsSafeRouteOpen(true);
   }, []);
 
+  const [hospitalReserveToast, setHospitalReserveToast] = useState<{ visible: boolean; name: string } | null>(null);
+
   const scrollToMap = useCallback(() => {
     const mapEl = document.getElementById('tactical-map');
     if (mapEl) {
       mapEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   }, []);
+
+  const handleRouteToHospital = useCallback((h: (typeof hospitals)[0]) => {
+    reserveHospitalBed(h.id);
+    setHospitalReserveToast({ visible: true, name: h.name });
+    setTimeout(() => setHospitalReserveToast(null), 4500);
+
+    const targetRep = reports.find(r => r.coords && r.coords.length === 2 && !isNaN(r.coords[0]));
+    calculateSafeRoute(targetRep?.coords, h.id);
+
+    setActiveTab('map');
+    setTimeout(() => {
+      scrollToMap();
+    }, 150);
+  }, [reserveHospitalBed, reports, calculateSafeRoute, scrollToMap]);
 
   const overloadedHospitals = useMemo(() => hospitals.filter(h => h.capacity >= 85).length, [hospitals]);
   const availableIcu = useMemo(() => hospitals.reduce((sum, h) => sum + h.icuAvailable, 0), [hospitals]);
@@ -240,7 +259,7 @@ function DashboardContent({
                 <span>Hospital Triage & Bed Saturation Matrix</span>
               </h2>
               <p className="text-xs text-slate-400 mt-1 font-mono">
-                Live monitoring across primary trauma centers in Islamabad / Rawalpindi
+                Live monitoring across primary trauma centers in {activeRegion.name}
               </p>
             </div>
             <span className="text-xs font-mono font-bold px-3 py-1 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800">
@@ -250,15 +269,24 @@ function DashboardContent({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {hospitals.map(h => (
-              <div key={h.id} className="bg-slate-950/90 border border-slate-800 rounded-2xl p-5 shadow-xl font-mono text-xs">
+              <div key={h.id} className="bg-slate-950/90 border border-slate-800 rounded-2xl p-5 shadow-xl font-mono text-xs hover:border-emerald-500/40 transition-colors">
                 <div className="flex justify-between items-start mb-3">
                   <div>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      <span className="text-[9px] font-mono text-emerald-400 font-bold uppercase tracking-wider">
+                        EOC CAD FEED • PEOC REGISTERED
+                      </span>
+                    </div>
                     <h3 className="font-bold text-sm text-white font-['Plus_Jakarta_Sans']">{h.name}</h3>
-                    <span className="text-[10px] text-slate-400">{h.address || 'Emergency Unit'}</span>
+                    <span className="text-[10px] text-slate-400">{h.address || h.location || 'Primary Emergency Trauma Center'}</span>
                   </div>
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${h.capacity >= 85 ? 'bg-rose-950 text-rose-300 border border-rose-800' : 'bg-emerald-950 text-emerald-300 border border-emerald-800'}`}>
-                    {h.capacity >= 85 ? 'OVERLOAD DIVERSION' : 'NORMAL TRIAGE'}
-                  </span>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${h.capacity >= 85 ? 'bg-rose-950 text-rose-300 border border-rose-800' : 'bg-emerald-950 text-emerald-300 border border-emerald-800'}`}>
+                      {h.capacity >= 85 ? 'OVERLOAD DIVERSION' : 'NORMAL TRIAGE'}
+                    </span>
+                    <span className="text-[9px] font-mono text-slate-500">Synced: Just now</span>
+                  </div>
                 </div>
 
                 <div className="space-y-1.5 mb-4">
@@ -288,13 +316,11 @@ function DashboardContent({
                 </div>
 
                 <button
-                  onClick={() => {
-                    handleOpenSafeRoute(h.coords);
-                  }}
-                  className="w-full py-2 rounded-lg bg-emerald-950 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
+                  onClick={() => handleRouteToHospital(h)}
+                  className="w-full py-2.5 rounded-lg bg-emerald-950 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-lg hover:shadow-emerald-950/50"
                 >
                   <Navigation className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Route Ambulances to this Facility</span>
+                  <span>Route Ambulances & Reserve Bed</span>
                 </button>
               </div>
             ))}
@@ -883,7 +909,23 @@ function DashboardContent({
         onOpenSafeRouteModal={() => setIsSafeRouteOpen(true)}
         onOpenPriorityModal={() => setIsPriorityOpen(true)}
         onOpenCitizenModal={() => {}}
+        onOpenSitrepModal={() => setIsSitrepOpen(true)}
       />
+
+      {/* Floating Hospital Bed Reservation Confirmation Toast */}
+      {hospitalReserveToast && (
+        <div className="fixed bottom-6 right-6 z-50 bg-emerald-950/95 border-2 border-emerald-500 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5 font-mono text-xs max-w-md backdrop-blur-md">
+          <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-400 flex items-center justify-center shrink-0">
+            <HeartPulse className="w-5 h-5 text-emerald-300 animate-pulse" />
+          </div>
+          <div>
+            <span className="font-black text-emerald-300 block text-xs">🚑 EOC DISPATCH & BED RESERVED</span>
+            <span className="text-slate-300 text-[11px] leading-tight block mt-0.5">
+              1 Emergency Trauma Bed reserved at <strong>{hospitalReserveToast.name}</strong>. Traffic corridor cleared.
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

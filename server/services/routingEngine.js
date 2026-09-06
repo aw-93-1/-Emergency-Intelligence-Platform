@@ -119,36 +119,61 @@ export async function calculateSafestRoute(startCoords, targetHospital, hazardZo
     });
   }
 
-  // 2. Determine verified safe detour waypoint avoiding flood basins
-  // In Twin Cities (Islamabad/Rawalpindi), Faizabad underpass is the flood pinch point.
-  // Routing via 9th Avenue elevated corridor bypasses it completely.
+  // 2. Query OpenStreetMap Driving Network (OSRM) for accurate street-level geometry
   const isTwinCities = start[0] > 33.5 && start[0] < 33.8 && start[1] > 72.9 && start[1] < 73.2;
-  let detourWaypoint;
+  let directRoadResult = null;
+  let safeRoadResult = null;
 
   if (isTwinCities && start[0] < 33.66 && dest[0] > 33.68) {
-    // Cross-city transit: detour via 9th Avenue elevated flyover
-    detourWaypoint = [33.6620, 73.0450];
-  } else if (isTwinCities && start[0] >= 33.66 && dest[0] >= 33.66) {
-    // Within Islamabad: lateral offset along dry avenue
-    const perpLat = -lngSpan * 0.35;
-    const perpLng = latSpan * 0.35;
-    detourWaypoint = [midLat + perpLat, midLng + perpLng];
+    // Twin Cities cross-transit: direct path is Murree Rd / Faizabad; safe path routes via 9th Avenue & IJP flyover
+    const waypoint9th = [33.6645, 73.0485];
+    [directRoadResult, safeRoadResult] = await Promise.all([
+      fetchOsmRoadRoute([start, dest]),
+      fetchOsmRoadRoute([start, waypoint9th, dest])
+    ]);
   } else {
-    // General geographic deflection away from direct vector
-    const perpLat = -lngSpan * 0.35;
-    const perpLng = latSpan * 0.35;
-    detourWaypoint = [midLat + perpLat, midLng + perpLng];
-  }
+    // Any Pakistani city: Query OSRM with alternatives=true to get real road network routes
+    try {
+      const coordString = `${start[1].toFixed(6)},${start[0].toFixed(6)};${dest[1].toFixed(6)},${dest[0].toFixed(6)}`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4500);
+      const res = await fetch(
+        `https://router.project-osrm.org/route/v1/driving/${coordString}?overview=full&geometries=geojson&alternatives=true`,
+        { signal: controller.signal }
+      );
+      clearTimeout(timeoutId);
 
-  // 3. Query OpenStreetMap Driving Network (OSRM) for accurate street-level geometry
-  const [directRoadResult, safeRoadResult] = await Promise.all([
-    fetchOsmRoadRoute([start, dest]),
-    fetchOsmRoadRoute([start, detourWaypoint, dest])
-  ]);
+      if (res.ok) {
+        const d = await res.json();
+        if (d.code === 'Ok' && d.routes && d.routes.length > 1) {
+          directRoadResult = {
+            polyline: d.routes[0].geometry.coordinates.map(c => [Number(c[1].toFixed(6)), Number(c[0].toFixed(6))]),
+            distanceKm: Number((d.routes[0].distance / 1000).toFixed(1)),
+            durationMin: Math.max(1, Math.round(d.routes[0].duration / 60))
+          };
+          safeRoadResult = {
+            polyline: d.routes[1].geometry.coordinates.map(c => [Number(c[1].toFixed(6)), Number(c[0].toFixed(6))]),
+            distanceKm: Number((d.routes[1].distance / 1000).toFixed(1)),
+            durationMin: Math.max(1, Math.round(d.routes[1].duration / 60))
+          };
+        } else if (d.code === 'Ok' && d.routes && d.routes.length === 1) {
+          const poly = d.routes[0].geometry.coordinates.map(c => [Number(c[1].toFixed(6)), Number(c[0].toFixed(6))]);
+          directRoadResult = {
+            polyline: poly,
+            distanceKm: Number((d.routes[0].distance / 1000).toFixed(1)),
+            durationMin: Math.max(1, Math.round(d.routes[0].duration / 60))
+          };
+          safeRoadResult = directRoadResult;
+        }
+      }
+    } catch (e) {
+      console.warn('[RoutingEngine] OSRM alternatives query note:', e.message);
+    }
+  }
 
   // Fallback straight-line snapped points if network or OSRM fails
   const fallbackDirect = generateFallbackPath([start, dest], 15);
-  const fallbackSafe = generateFallbackPath([start, detourWaypoint, dest], 20);
+  const fallbackSafe = generateFallbackPath([start, [(start[0] + dest[0]) / 2, (start[1] + dest[1]) / 2], dest], 20);
 
   const directPath = directRoadResult?.polyline && directRoadResult.polyline.length > 5
     ? directRoadResult.polyline

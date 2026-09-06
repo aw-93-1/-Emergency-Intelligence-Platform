@@ -136,14 +136,42 @@ const createRouteWaypointIcon = (label: string, isDest: boolean) => {
   });
 };
 
-const createAmbulanceIcon = (bearing: number, isAtDest: boolean) => {
+type MissionPhase = 'OUTBOUND' | 'ON_SCENE' | 'INBOUND' | 'COMPLETED';
+
+const createAmbulanceIcon = (bearing: number, phase: MissionPhase) => {
+  const isCompleted = phase === 'COMPLETED';
+  const isOnScene = phase === 'ON_SCENE';
+  const isOutbound = phase === 'OUTBOUND';
+
+  const haloClass = isCompleted
+    ? 'bg-emerald-500/30'
+    : isOnScene
+    ? 'bg-cyan-500/40'
+    : isOutbound
+    ? 'bg-amber-500/30'
+    : 'bg-rose-500/40';
+
+  const beaconLeft = isCompleted
+    ? 'bg-emerald-500'
+    : isOnScene
+    ? 'bg-cyan-400 animate-ping'
+    : 'bg-rose-600 animate-pulse';
+
+  const beaconRight = isCompleted
+    ? 'bg-emerald-400'
+    : isOnScene
+    ? 'bg-amber-400 animate-ping'
+    : 'bg-cyan-500 animate-pulse';
+
+  const sideDecal = isCompleted ? 'bg-emerald-600' : isOnScene ? 'bg-cyan-500' : 'bg-rose-600';
+
   return L.divIcon({
     className: 'custom-ambulance-marker',
     html: `
       <div style="transform: rotate(${Math.round(bearing)}deg); transform-origin: center center; transition: transform 0.15s ease;" class="relative flex items-center justify-center w-12 h-12 select-none pointer-events-auto cursor-pointer">
         <!-- Dual Emergency Flashing Siren Pulse Wave -->
-        <span class="absolute w-12 h-12 rounded-full ${isAtDest ? 'bg-emerald-500/30' : 'bg-red-500/30'} animate-ping pointer-events-none"></span>
-        <span class="absolute w-8 h-8 rounded-full ${isAtDest ? 'bg-emerald-500/40' : 'bg-cyan-500/40'} animate-pulse pointer-events-none"></span>
+        <span class="absolute w-12 h-12 rounded-full ${haloClass} animate-ping pointer-events-none"></span>
+        <span class="absolute w-8 h-8 rounded-full ${haloClass} animate-pulse pointer-events-none"></span>
 
         <!-- Realistic Emergency Ambulance Chassis (Facing North) -->
         <div class="relative w-6 h-12 bg-white rounded-md border-2 border-slate-900 shadow-md flex flex-col items-center justify-between p-0.5 overflow-hidden">
@@ -156,9 +184,9 @@ const createAmbulanceIcon = (bearing: number, isAtDest: boolean) => {
 
           <!-- Dual Flashing Roof Emergency Strobe Beacons (Red & Blue/Cyan) -->
           <div class="flex items-center justify-center gap-1 my-0.5 z-10">
-            <span class="w-1.5 h-1.5 rounded-full ${isAtDest ? 'bg-emerald-500' : 'bg-rose-600 animate-pulse'}"></span>
+            <span class="w-1.5 h-1.5 rounded-full ${beaconLeft}"></span>
             <span class="text-[6px] font-black font-mono text-slate-900 leading-none tracking-tighter">1122</span>
-            <span class="w-1.5 h-1.5 rounded-full ${isAtDest ? 'bg-emerald-400' : 'bg-cyan-500 animate-pulse'}"></span>
+            <span class="w-1.5 h-1.5 rounded-full ${beaconRight}"></span>
           </div>
 
           <!-- Prominent Red Medical Cross '+' Sign on Roof -->
@@ -168,8 +196,8 @@ const createAmbulanceIcon = (bearing: number, isAtDest: boolean) => {
             </svg>
           </div>
 
-          <!-- High-Visibility Red / Green Chevron Side Decals -->
-          <div class="w-full h-1 ${isAtDest ? 'bg-emerald-600' : 'bg-red-600'} rounded-none"></div>
+          <!-- High-Visibility Red / Green / Cyan Chevron Side Decals -->
+          <div class="w-full h-1 ${sideDecal} rounded-none"></div>
 
           <!-- Rear Bumper & Taillights -->
           <div class="w-full flex items-center justify-between px-0.5 pb-0.5">
@@ -187,97 +215,155 @@ const createAmbulanceIcon = (bearing: number, isAtDest: boolean) => {
 };
 
 function AnimatedAmbulanceMarker({ path }: { path: [number, number][] }) {
+  const [phase, setPhase] = useState<MissionPhase>('OUTBOUND');
   const [currentDist, setCurrentDist] = useState(0);
-  const [isAtDest, setIsAtDest] = useState(false);
+
+  // path is [Patient, ..., Hospital]
+  // Outbound path starts at Hospital (where ambulance is stationed) and drives to Patient
+  const outboundPath = useMemo(() => {
+    return path && path.length >= 2 ? [...path].reverse() : [];
+  }, [path]);
+
+  // Inbound path carries patient back from Patient to Hospital
+  const inboundPath = useMemo(() => {
+    return path && path.length >= 2 ? path : [];
+  }, [path]);
+
+  const activePath = useMemo(() => {
+    if (phase === 'OUTBOUND') return outboundPath;
+    if (phase === 'ON_SCENE') return [outboundPath[outboundPath.length - 1], outboundPath[outboundPath.length - 1]];
+    if (phase === 'INBOUND') return inboundPath;
+    return [inboundPath[inboundPath.length - 1], inboundPath[inboundPath.length - 1]];
+  }, [phase, outboundPath, inboundPath]);
 
   const segmentLengths = useMemo(() => {
-    if (!path || path.length < 2) return [];
+    if (!activePath || activePath.length < 2) return [];
     const lengths: number[] = [];
-    for (let i = 0; i < path.length - 1; i++) {
-      const p1 = path[i];
-      const p2 = path[i + 1];
+    for (let i = 0; i < activePath.length - 1; i++) {
+      const p1 = activePath[i];
+      const p2 = activePath[i + 1];
       const dLat = p2[0] - p1[0];
       const dLng = p2[1] - p1[1];
       lengths.push(Math.sqrt(dLat * dLat + dLng * dLng));
     }
     return lengths;
-  }, [path]);
+  }, [activePath]);
 
   const totalDist = useMemo(() => {
     return segmentLengths.reduce((sum, len) => sum + len, 0);
   }, [segmentLengths]);
 
   useEffect(() => {
+    setPhase('OUTBOUND');
     setCurrentDist(0);
-    setIsAtDest(false);
   }, [path]);
 
   useEffect(() => {
-    if (!path || path.length < 2 || totalDist === 0) return;
+    if (phase === 'COMPLETED') return;
 
-    // Once completed, stay parked at hospital triage gate without repeating
-    if (isAtDest) return;
+    if (phase === 'ON_SCENE') {
+      // 3.5s pause on scene administering emergency oxygen & boarding patient
+      const t = setTimeout(() => {
+        setPhase('INBOUND');
+        setCurrentDist(0);
+      }, 3500);
+      return () => clearTimeout(t);
+    }
 
-    const step = totalDist / 500; // Realistic emergency traversal pace (~25 seconds total transit)
+    if (!activePath || activePath.length < 2 || totalDist === 0) return;
+
+    // Realistic traversal pace (~14 seconds per road transit leg)
+    const step = totalDist / 280;
     const interval = setInterval(() => {
       setCurrentDist((prev) => {
         const next = prev + step;
         if (next >= totalDist) {
-          setIsAtDest(true);
-          return totalDist;
+          if (phase === 'OUTBOUND') {
+            setPhase('ON_SCENE');
+            return totalDist;
+          } else if (phase === 'INBOUND') {
+            setPhase('COMPLETED');
+            return totalDist;
+          }
         }
         return next;
       });
     }, 50);
 
     return () => clearInterval(interval);
-  }, [path, totalDist, isAtDest]);
+  }, [phase, activePath, totalDist]);
 
-  if (!path || path.length < 2 || totalDist === 0) return null;
+  if (!path || path.length < 2) return null;
 
-  let accumulated = 0;
-  let segIndex = 0;
-  let segProgress = 0;
+  let currentLat = path[0][0];
+  let currentLng = path[0][1];
+  let bearing = 0;
 
-  for (let i = 0; i < segmentLengths.length; i++) {
-    const len = segmentLengths[i];
-    if (currentDist <= accumulated + len || i === segmentLengths.length - 1) {
-      segIndex = i;
-      segProgress = len > 0 ? Math.min(1, Math.max(0, (currentDist - accumulated) / len)) : 0;
-      break;
+  if (phase === 'ON_SCENE') {
+    const sceneCoord = outboundPath[outboundPath.length - 1] || path[0];
+    currentLat = sceneCoord[0];
+    currentLng = sceneCoord[1];
+    bearing = 0;
+  } else if (phase === 'COMPLETED') {
+    const hospitalCoord = inboundPath[inboundPath.length - 1] || path[path.length - 1];
+    currentLat = hospitalCoord[0];
+    currentLng = hospitalCoord[1];
+    bearing = 0;
+  } else {
+    let accumulated = 0;
+    let segIndex = 0;
+    let segProgress = 0;
+
+    for (let i = 0; i < segmentLengths.length; i++) {
+      const len = segmentLengths[i];
+      if (currentDist <= accumulated + len || i === segmentLengths.length - 1) {
+        segIndex = i;
+        segProgress = len > 0 ? Math.min(1, Math.max(0, (currentDist - accumulated) / len)) : 0;
+        break;
+      }
+      accumulated += len;
     }
-    accumulated += len;
+
+    const p1 = activePath[segIndex] || activePath[0];
+    const p2 = activePath[segIndex + 1] || p1;
+
+    currentLat = p1[0] + (p2[0] - p1[0]) * segProgress;
+    currentLng = p1[1] + (p2[1] - p1[1]) * segProgress;
+
+    const lat1Rad = (p1[0] * Math.PI) / 180;
+    const lng1Rad = (p1[1] * Math.PI) / 180;
+    const lat2Rad = (p2[0] * Math.PI) / 180;
+    const lng2Rad = (p2[1] * Math.PI) / 180;
+    const dLng = lng2Rad - lng1Rad;
+    const y = Math.sin(dLng) * Math.cos(lat2Rad);
+    const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLng);
+    bearing = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
   }
 
-  const p1 = path[segIndex];
-  const p2 = path[segIndex + 1] || p1;
-
-  const currentLat = p1[0] + (p2[0] - p1[0]) * segProgress;
-  const currentLng = p1[1] + (p2[1] - p1[1]) * segProgress;
-
-  // Real geographic bearing
-  const lat1Rad = (p1[0] * Math.PI) / 180;
-  const lng1Rad = (p1[1] * Math.PI) / 180;
-  const lat2Rad = (p2[0] * Math.PI) / 180;
-  const lng2Rad = (p2[1] * Math.PI) / 180;
-  const dLng = lng2Rad - lng1Rad;
-  const y = Math.sin(dLng) * Math.cos(lat2Rad);
-  const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLng);
-  const bearing = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
-
-  const ambulanceIcon = createAmbulanceIcon(bearing, isAtDest);
+  const ambulanceIcon = createAmbulanceIcon(bearing, phase);
 
   return (
     <Marker position={[currentLat, currentLng]} icon={ambulanceIcon} zIndexOffset={1200}>
       <Tooltip direction="top" offset={[0, -22]}>
         <div className="font-mono text-[11px] font-bold">
-          {isAtDest ? (
-            <span className="text-emerald-700 flex items-center gap-1">
-              🏥 PATIENT DELIVERED TO HOSPITAL ER
+          {phase === 'OUTBOUND' && (
+            <span className="text-amber-700 flex items-center gap-1">
+              🚑 OUTBOUND DISPATCH: Hospital ➔ Patient Scene (Carrying O₂ & Trauma Kit)
             </span>
-          ) : (
-            <span className="text-slate-900 flex items-center gap-1">
-              🚑 RESCUE 1122 AMBULANCE • DETOUR IN PROGRESS ({Math.round(bearing)}°)
+          )}
+          {phase === 'ON_SCENE' && (
+            <span className="text-cyan-700 flex items-center gap-1 animate-pulse">
+              🫁 ON SCENE: Administering Emergency Oxygen • Boarding Patient into Ambulance
+            </span>
+          )}
+          {phase === 'INBOUND' && (
+            <span className="text-red-700 flex items-center gap-1">
+              🚨 CRITICAL TRANSPORT: Patient ➔ Hospital ER Trauma Bay (Sirens Active)
+            </span>
+          )}
+          {phase === 'COMPLETED' && (
+            <span className="text-emerald-700 flex items-center gap-1">
+              🏥 MISSION COMPLETED: Patient Admitted to ER • 1 Bed Utilized
             </span>
           )}
         </div>
@@ -285,25 +371,32 @@ function AnimatedAmbulanceMarker({ path }: { path: [number, number][] }) {
       <Popup className="custom-dark-popup">
         <div className="p-3 bg-slate-950 text-slate-100 rounded-xl font-mono text-xs max-w-xs select-none">
           <div className="flex items-center gap-2 mb-1.5">
-            <span className={`w-2.5 h-2.5 rounded-full ${isAtDest ? 'bg-emerald-400' : 'bg-rose-500 animate-pulse'}`} />
-            <span className="font-bold text-white text-sm">Rescue 1122 Rapid Fleet</span>
+            <span className={`w-2.5 h-2.5 rounded-full ${phase === 'COMPLETED' ? 'bg-emerald-400' : phase === 'ON_SCENE' ? 'bg-cyan-400 animate-ping' : 'bg-rose-500 animate-pulse'}`} />
+            <span className="font-bold text-white text-sm">Rescue 1122 Two-Way CAD</span>
           </div>
-          <p className="text-[11px] text-slate-300 mb-2.5">
-            {isAtDest
-              ? '✅ Patient transfer complete. Unit stationed at hospital emergency triage bay.'
-              : '⚡ In-transit rapid response bypassing submerged arterial roads.'}
-          </p>
-          {isAtDest && (
-            <button
-              onClick={() => {
-                setIsAtDest(false);
-                setCurrentDist(0);
-              }}
-              className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition-colors shadow-[0_0_10px_rgba(16,185,129,0.3)]"
-            >
-              ↺ Re-run Route Simulation
-            </button>
-          )}
+          <div className="text-[11px] text-slate-300 space-y-1 mb-2.5">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-cyan-400">
+              {phase === 'OUTBOUND' && 'Phase 1/3: Outbound Dispatch (Hospital ➔ Incident Scene)'}
+              {phase === 'ON_SCENE' && 'Phase 2/3: On-Scene Emergency Oxygen & Triage'}
+              {phase === 'INBOUND' && 'Phase 3/3: Critical Inbound Evacuation (Patient ➔ Hospital ER)'}
+              {phase === 'COMPLETED' && 'Mission Status: Completed • Patient In Triage Care'}
+            </div>
+            <p className="text-[10px] leading-relaxed text-slate-400">
+              {phase === 'OUTBOUND' && 'Ambulance dispatched from hospital bay on cleared, elevated roads carrying emergency oxygen cylinders & trauma paramedic crew.'}
+              {phase === 'ON_SCENE' && 'Ambulance on scene. Administering emergency oxygen to patient, checking vitals, and securing patient onto gurney.'}
+              {phase === 'INBOUND' && 'Transporting stabilized patient along verified safe bypass route directly to hospital ER bay. Sirens engaged.'}
+              {phase === 'COMPLETED' && 'Patient successfully delivered to emergency bay. 1 Trauma bed reserved & occupied. Ambulance standing by.'}
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              setPhase('OUTBOUND');
+              setCurrentDist(0);
+            }}
+            className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] transition-colors shadow-[0_0_10px_rgba(16,185,129,0.3)] flex items-center justify-center gap-1"
+          >
+            <span>↺ Re-run Full Rescue Lifecycle</span>
+          </button>
         </div>
       </Popup>
     </Marker>
@@ -1038,7 +1131,7 @@ export const MapView: React.FC<MapViewProps> = React.memo(({ onDispatchToSector 
               >
                 <Tooltip sticky>
                   <span className="font-mono text-xs text-red-600 font-bold">
-                    ❌ DIRECT PATH (BLOCKED BY 4.5FT FLOOD AT FAIZABAD)
+                    ❌ DIRECT PATH ({activeSafeRoute.detectedHazards?.[0]?.name || 'HAZARD OBSTRUCTED'})
                   </span>
                 </Tooltip>
               </Polyline>
@@ -1056,7 +1149,7 @@ export const MapView: React.FC<MapViewProps> = React.memo(({ onDispatchToSector 
               >
                 <Tooltip sticky>
                   <span className="font-mono text-xs text-emerald-600 font-bold">
-                    ✅ VERIFIED SAFE DETOUR ROUTE (Via 9th Ave Flyover &bull; {activeSafeRoute.safeDistanceKm} km)
+                    ✅ VERIFIED SAFE DETOUR ROUTE (➔ {activeSafeRoute.destination?.name || 'Trauma Facility'} &bull; {activeSafeRoute.safeDistanceKm} km)
                   </span>
                 </Tooltip>
               </Polyline>
@@ -1066,13 +1159,13 @@ export const MapView: React.FC<MapViewProps> = React.memo(({ onDispatchToSector 
             {activeSafeRoute.origin?.coords && (
               <Marker
                 position={activeSafeRoute.origin.coords}
-                icon={createRouteWaypointIcon("START", false)}
+                icon={createRouteWaypointIcon("PATIENT (O₂)", false)}
               />
             )}
             {activeSafeRoute.destination?.coords && (
               <Marker
                 position={activeSafeRoute.destination.coords}
-                icon={createRouteWaypointIcon("END", true)}
+                icon={createRouteWaypointIcon("HOSPITAL ER", true)}
               />
             )}
 
@@ -1081,6 +1174,15 @@ export const MapView: React.FC<MapViewProps> = React.memo(({ onDispatchToSector 
               <AnimatedAmbulanceMarker path={activeSafeRoute.safePath} />
             )}
           </>
+        )}
+
+        {/* Live Two-Way CAD Mission HUD Banner */}
+        {layers.safeRouteOverlay && activeSafeRoute && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-slate-950/90 border border-cyan-500/50 backdrop-blur-md px-4 py-2 rounded-full shadow-2xl flex items-center gap-2.5 font-mono text-[11px] select-none text-slate-200 pointer-events-none">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+            <span className="text-cyan-400 font-bold">RESCUE 1122 TWO-WAY CAD:</span>
+            <span>Hospital ➔ Scene (Oxygen Triage) ➔ ER Trauma Bay</span>
+          </div>
         )}
       </MapContainer>
     </div>

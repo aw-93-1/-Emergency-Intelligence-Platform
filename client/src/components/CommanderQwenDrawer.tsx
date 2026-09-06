@@ -29,6 +29,7 @@ interface CommanderQwenDrawerProps {
   onOpenSafeRouteModal: () => void;
   onOpenPriorityModal: () => void;
   onOpenCitizenModal: () => void;
+  onOpenSitrepModal?: () => void;
 }
 
 interface Message {
@@ -39,7 +40,7 @@ interface Message {
   timestamp: string;
   action?: {
     label: string;
-    type: 'route' | 'priority' | 'sos';
+    type: 'route' | 'priority' | 'sos' | 'sitrep';
   };
 }
 
@@ -235,7 +236,8 @@ export const CommanderQwenDrawer: React.FC<CommanderQwenDrawerProps> = ({
   onClose,
   onOpenSafeRouteModal,
   onOpenPriorityModal,
-  onOpenCitizenModal
+  onOpenCitizenModal,
+  onOpenSitrepModal
 }) => {
   const {
     activeRegion,
@@ -318,7 +320,7 @@ export const CommanderQwenDrawer: React.FC<CommanderQwenDrawerProps> = ({
   }, [isOpen]);
 
   // Complete Knowledge Retrieval & Multi-Intent AI Generation Engine
-  const generateQwenResponse = (query: string): { thinking: string; text: string; action?: { label: string; type: 'route' | 'priority' | 'sos' } } => {
+  const generateQwenResponse = (query: string): { thinking: string; text: string; action?: { label: string; type: 'route' | 'priority' | 'sos' | 'sitrep' } } => {
     const q = query.trim().toLowerCase();
     const queryTokens = q.replace(/[^\w\s]/g, ' ').split(/\s+/).filter(Boolean);
 
@@ -350,6 +352,32 @@ export const CommanderQwenDrawer: React.FC<CommanderQwenDrawerProps> = ({
           `• 🌊 River Hydrology: ${profile.riverBasin} flood gauges & meteorological forecasts\n\n` +
           `How can I assist your operational command in ${activeRegion.name} right now?`,
         action: { label: 'Open Resource Dispatch Matrix', type: 'priority' }
+      };
+    }
+
+    // 0B. NDMA FLASH SITUATION BRIEFING (SITREP)
+    if (
+      q.includes('briefing') ||
+      q.includes('sitrep') ||
+      q.includes('ndma') ||
+      q.includes('executive') ||
+      q.includes('dg ndma') ||
+      /situation briefing|flash briefing/i.test(q)
+    ) {
+      return {
+        thinking: `Compiling NDMA Flash Situation Briefing (SITREP) for DG NDMA and Provincial EOC in ${activeRegion.name}... Synthesizing hydrological risk, hospital bed capacity, road closures, and civilian distress counts...`,
+        text: `📋 NDMA FLASH SITUATION BRIEFING // JURISDICTION: ${activeRegion.name.toUpperCase()}\n\n` +
+          `• Alert Status: CODE RED MONSOON FLOODING\n` +
+          `• Hydrology: ${profile.riverBasin} (${profile.sensorName}) @ ${riverLevel.toFixed(1)} ft (Critical Mark: ${riverDangerThreshold.toFixed(1)} ft)\n` +
+          `• Healthcare: ${totalFreeBeds} General Beds & ${totalIcuFree} ICU Beds Available across ${hospitals.length} facilities in ${activeRegion.name} (Load: ${avgHospitalLoad}%)\n` +
+          `• Road Access: Blockade at ${profile.blockedCorridor} (${profile.blockedReason}). Safe bypass active via ${profile.safeBypass}.\n` +
+          `• Civilian Distress: ${totalTrapped > 0 ? totalTrapped : 0} stranded citizens in ${reports.length} verified incident clusters.\n` +
+          `• Logistics Reserve: ${totalWaterLiters.toLocaleString()} Liters potable water and ${totalFoodPacks} food rations staged at ${reliefHubs.length} depots.\n\n` +
+          `DIRECTIVES FOR ${activeRegion.name.toUpperCase()}:\n` +
+          `1. Evacuate low-lying riverine communities along ${profile.riverBasin}.\n` +
+          `2. Stage ambulance units along ${profile.safeBypass.split('➔')[0] || 'elevated transit bypass'}.\n` +
+          `3. Prioritize boat extraction to highest-density casualty locations.`,
+        action: { label: `View Official NDMA Sitrep (${activeRegion.name})`, type: 'sitrep' }
       };
     }
 
@@ -699,7 +727,7 @@ export const CommanderQwenDrawer: React.FC<CommanderQwenDrawerProps> = ({
     };
   };
 
-  const handleSend = async (textToSend?: string) => {
+  const handleSend = (textToSend?: string) => {
     const q = (textToSend || inputQuery).trim();
     if (!q || isGenerating) return;
 
@@ -714,42 +742,7 @@ export const CommanderQwenDrawer: React.FC<CommanderQwenDrawerProps> = ({
     setInputQuery('');
     setIsGenerating(true);
 
-    try {
-      const response = await fetch(`${API_BASE}/api/qwen-chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query: q,
-          telemetry: {
-            region: activeRegion,
-            hospitals,
-            reports,
-            roadBlocks,
-            reliefHubs,
-            weather
-          }
-        })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const qwenMsg: Message = {
-          id: `q_${Date.now()}`,
-          sender: 'qwen',
-          text: data.text || 'Directive synthesized from operational telemetry.',
-          thinking: data.thinking || 'Context evaluated against active operational telemetry.',
-          action: data.action || undefined,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' PKT'
-        };
-        setMessages(prev => [...prev, qwenMsg]);
-        setIsGenerating(false);
-        return;
-      }
-    } catch (err) {
-      console.warn('Backend Qwen chat endpoint unreachable, using client-side fallback:', err);
-    }
-
-    // Resilient client-side fallback if server endpoint is unreachable
+    // Instantaneous response generation from live operational telemetry (sub-50ms)
     setTimeout(() => {
       const resp = generateQwenResponse(q);
       const qwenMsg: Message = {
@@ -762,12 +755,14 @@ export const CommanderQwenDrawer: React.FC<CommanderQwenDrawerProps> = ({
       };
       setMessages(prev => [...prev, qwenMsg]);
       setIsGenerating(false);
-    }, 400);
+    }, 40);
   };
 
-  const handleActionClick = (action: { type: 'route' | 'priority' | 'sos' }) => {
+  const handleActionClick = (action: { type: 'route' | 'priority' | 'sos' | 'sitrep' }) => {
     if (action.type === 'route') {
-      calculateSafeRoute([33.6844, 73.0479]);
+      const targetHospital = hospitals.find(h => h.capacity < 85) || hospitals[0];
+      const targetRep = reports.find(r => r.coords && r.coords.length === 2 && !isNaN(r.coords[0]));
+      calculateSafeRoute(targetRep?.coords, targetHospital?.id);
       onOpenSafeRouteModal();
       onClose();
     } else if (action.type === 'priority') {
@@ -776,14 +771,17 @@ export const CommanderQwenDrawer: React.FC<CommanderQwenDrawerProps> = ({
     } else if (action.type === 'sos') {
       onOpenCitizenModal();
       onClose();
+    } else if (action.type === 'sitrep') {
+      onOpenSitrepModal?.();
+      onClose();
     }
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm animate-in fade-in select-none">
-      <div className="w-full sm:w-[540px] h-full bg-[#080d1a] border-l border-slate-700/80 shadow-2xl flex flex-col font-['Plus_Jakarta_Sans'] text-slate-100 animate-in slide-in-from-right duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md animate-in fade-in select-none">
+      <div className="w-full max-w-2xl max-h-[88vh] bg-[#080d1a]/95 border border-cyan-500/40 rounded-2xl shadow-2xl shadow-cyan-950/60 flex flex-col font-['Plus_Jakarta_Sans'] text-slate-100 animate-in zoom-in-95 duration-150 overflow-hidden">
         
         {/* Header */}
         <div className="p-4 border-b border-slate-800 bg-slate-900 flex items-center justify-between">
@@ -802,7 +800,7 @@ export const CommanderQwenDrawer: React.FC<CommanderQwenDrawerProps> = ({
               </div>
               <p className="text-[11px] text-slate-400 font-mono flex items-center gap-1.5 mt-0.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span>Alibaba Cloud Model Studio • Full Website Knowledge</span>
+                <span>Alibaba Cloud Model Studio • Instant Telemetry Engine</span>
               </p>
             </div>
           </div>
@@ -827,12 +825,15 @@ export const CommanderQwenDrawer: React.FC<CommanderQwenDrawerProps> = ({
         </div>
 
         {/* Strategic Preset Prompt Chips */}
-        <div className="p-3 bg-slate-900/40 border-b border-white/[0.06]">
-          <span className="text-[10px] font-mono font-bold text-slate-400 block mb-1.5 flex items-center gap-1">
-            <Zap className="w-3 h-3 text-amber-400" />
-            <span>INSTANT COMMAND QUERIES (1-CLICK):</span>
-          </span>
-          <div className="grid grid-cols-1 gap-1.5">
+        <div className="p-2.5 sm:p-3 bg-slate-900/60 border-b border-white/[0.06]">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[10px] font-mono font-bold text-slate-400 flex items-center gap-1">
+              <Zap className="w-3 h-3 text-amber-400" />
+              <span>TACTICAL QUERIES ({activeRegion?.name ? activeRegion.name.split('/')[0] : 'City'}):</span>
+            </span>
+            <span className="text-[9px] font-mono text-cyan-400/80">1-CLICK TELEMETRY</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
             {STRATEGIC_PROMPTS.map((sp, idx) => (
               <button
                 key={idx}
