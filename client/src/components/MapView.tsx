@@ -218,7 +218,7 @@ function AnimatedAmbulanceMarker({ path }: { path: [number, number][] }) {
     // Once completed, stay parked at hospital triage gate without repeating
     if (isAtDest) return;
 
-    const step = totalDist / 180; // Smooth ~7-9 second traversal
+    const step = totalDist / 500; // Realistic emergency traversal pace (~25 seconds total transit)
     const interval = setInterval(() => {
       setCurrentDist((prev) => {
         const next = prev + step;
@@ -228,7 +228,7 @@ function AnimatedAmbulanceMarker({ path }: { path: [number, number][] }) {
         }
         return next;
       });
-    }, 45);
+    }, 50);
 
     return () => clearInterval(interval);
   }, [path, totalDist, isAtDest]);

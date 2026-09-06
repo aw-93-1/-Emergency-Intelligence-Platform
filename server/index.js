@@ -637,7 +637,7 @@ app.post('/api/vision/analyze-damage', async (req, res) => {
 });
 
 // Safe Route Calculation
-app.post('/api/route/calculate', (req, res) => {
+app.post('/api/route/calculate', async (req, res) => {
   const { startCoords, hospitalId, hospitals } = req.body;
   
   let pool = Array.isArray(hospitals) && hospitals.length > 0
@@ -666,7 +666,7 @@ app.post('/api/route/calculate', (req, res) => {
     return res.status(409).json({ success: false, error: 'No live medical facility is available for routing' });
   }
 
-  const calculatedRoute = calculateSafestRoute(
+  const calculatedRoute = await calculateSafestRoute(
     startCoords,
     targetHospital,
     currentState.hazardZones,
