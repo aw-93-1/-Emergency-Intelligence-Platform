@@ -420,6 +420,8 @@ const buildLiveSnapshot = (region, intel, radar) => {
       temperature: intel.weather.current?.temperature_2m,
       precipitation: intel.weather.current?.precipitation || 0,
       weatherCode: intel.weather.current?.weathercode ?? intel.weather.current?.weather_code,
+      condition: (intel.weather.current?.is_day === 0) ? 'Clear Night' : 'Clear Sky',
+      isDay: intel.weather.current?.is_day !== undefined ? intel.weather.current.is_day === 1 : (new Date().getHours() >= 6 && new Date().getHours() < 19),
       time: intel.weather.current?.time,
       humidity: intel.weather.current?.relative_humidity_2m || 0,
       windSpeed: intel.weather.current?.wind_speed_10m || 0,
@@ -433,11 +435,27 @@ const buildLiveSnapshot = (region, intel, radar) => {
 };
 
 const refreshRegion = async region => {
-  const city = { name: region.name, lat: region.center[0], lon: region.center[1] };
-  const [intel, radar] = await Promise.all([fetchCityIntel(city), getRadarData()]);
-  const snapshot = buildLiveSnapshot(region, intel, radar);
-  liveRegionCache.set(region.id, snapshot);
-  return snapshot;
+  try {
+    const city = { name: region.name, lat: region.center[0], lon: region.center[1] };
+    const [intel, radar] = await Promise.all([
+      fetchCityIntel(city).catch(err => {
+        console.warn(`[LiveIntel Warning] ${region.name} fetch failed:`, err.message);
+        return { weather: null, incidents: [], hospitals: [], waterPoints: [], sources: [] };
+      }),
+      getRadarData().catch(() => null)
+    ]);
+    const snapshot = buildLiveSnapshot(region, intel, radar);
+    liveRegionCache.set(region.id, snapshot);
+    return snapshot;
+  } catch (err) {
+    console.error(`[RefreshRegion Error] ${region.name}:`, err);
+    if (liveRegionCache.has(region.id)) {
+      return liveRegionCache.get(region.id);
+    }
+    const fallbackSnapshot = buildLiveSnapshot(region, { weather: null, incidents: [], hospitals: [], waterPoints: [], sources: [] }, null);
+    liveRegionCache.set(region.id, fallbackSnapshot);
+    return fallbackSnapshot;
+  }
 };
 
 const refreshAllRegions = async () => {
@@ -499,8 +517,12 @@ app.get('/api/database/status', (req, res) => {
 // Commander Authentication Gate
 app.post('/api/auth/commander-login', (req, res) => {
   const { passcode } = req.body || {};
-  const validCodes = ['ndma-1122', 'rescue-1122', 'commander', 'admin', '1122', 'ndma'];
   const clean = String(passcode || '').trim().toLowerCase();
+
+  // Supports secure custom deployment key from env or standard verified EOC demo keys
+  const customPasscode = process.env.COMMANDER_PASSCODE ? String(process.env.COMMANDER_PASSCODE).trim().toLowerCase() : null;
+  const demoCodes = ['ndma-1122', 'rescue-1122', 'commander', 'admin', '1122', 'ndma'];
+  const validCodes = customPasscode ? [customPasscode, ...demoCodes] : demoCodes;
 
   if (validCodes.includes(clean)) {
     return res.json({

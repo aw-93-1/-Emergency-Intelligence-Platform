@@ -123,12 +123,13 @@ function DashboardContent({
   const liveActiveSos = useMemo(() => reports.length, [reports.length]);
 
   const liveRiverLevel = useMemo(() => {
-    if (weather?.riverDischargeM3s) {
-      return `${weather.riverDischargeM3s} m³/s`;
-    }
-    const rainOffset = (weather?.precipitation && weather.precipitation > 0) ? Math.min(3.5, weather.precipitation * 0.3) : 0;
-    return `${(19.5 + rainOffset).toFixed(1)} ft`;
-  }, [weather?.riverDischargeM3s, weather?.precipitation]);
+    const dangerLimit = activeRegion.dangerLimitFeet || 20.0;
+    const baseFeet = dangerLimit - 3.8;
+    const rainOffset = (weather?.precipitation && weather.precipitation > 0) 
+      ? Math.min(3.5, weather.precipitation * 0.25) 
+      : 0;
+    return (baseFeet + rainOffset).toFixed(1);
+  }, [activeRegion.dangerLimitFeet, weather?.precipitation]);
 
   return (
     <div className="min-h-screen w-full bg-[#080d1a] text-slate-100 font-['Plus_Jakarta_Sans'] overflow-x-hidden pb-16 md:pb-0">

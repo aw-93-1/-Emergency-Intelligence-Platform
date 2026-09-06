@@ -167,7 +167,7 @@ export async function fetchCityIntel(city, signal) {
   const hospitalQuery = `[out:json];node["amenity"="hospital"](${bounds});out;`;
   const waterQuery = `[out:json];node["amenity"="drinking_water"](${bounds});out;`;
   const requests = [
-    fetchJson(`https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}&current=temperature_2m,relative_humidity_2m,precipitation,weathercode,wind_speed_10m,wind_gusts_10m&hourly=precipitation`, signal),
+    fetchJson(`https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}&current=temperature_2m,relative_humidity_2m,precipitation,weathercode,wind_speed_10m,wind_gusts_10m,is_day&hourly=precipitation`, signal),
     earthquakes(city, signal),
     fires(city, signal),
     gdacs(city, signal),

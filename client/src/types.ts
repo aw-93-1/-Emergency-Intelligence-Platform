@@ -227,6 +227,7 @@ export interface WeatherData {
   precipitation: number;
   weatherCode: number;
   condition?: string;
+  isDay?: boolean;
   windSpeed: number;
   windGusts: number;
   time: string;

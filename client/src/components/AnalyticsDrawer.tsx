@@ -12,6 +12,7 @@ import {
   Radio,
   CloudRain,
   Sun,
+  Moon,
   Wind
 } from 'lucide-react';
 import { useCrisis } from '../context/CrisisContext';
@@ -59,7 +60,13 @@ export const AnalyticsDrawer: React.FC = () => {
           {weather && (
             <div className="hidden md:flex items-center gap-2 text-[11px] text-slate-300 border-r border-slate-800 pr-3">
               <span className="text-cyan-400 font-bold flex items-center gap-1">
-                {weather.precipitation > 0 ? <CloudRain className="w-3.5 h-3.5 text-sky-400" /> : <Sun className="w-3.5 h-3.5 text-amber-400" />}
+                {weather.precipitation > 0 ? (
+                  <CloudRain className="w-3.5 h-3.5 text-sky-400" />
+                ) : weather.isDay === false ? (
+                  <Moon className="w-3.5 h-3.5 text-indigo-300" />
+                ) : (
+                  <Sun className="w-3.5 h-3.5 text-amber-400" />
+                )}
                 {weather.temperature}°C
               </span>
               <span className="text-slate-400">({weather.condition || 'Clear'})</span>

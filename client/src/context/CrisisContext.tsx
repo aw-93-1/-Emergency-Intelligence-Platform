@@ -556,7 +556,8 @@ export const CrisisProvider: React.FC<{
       `precipitation,` +
       `wind_speed_10m,` +
       `wind_gusts_10m,` +
-      `weather_code` +
+      `weather_code,` +
+      `is_day` +
       `&timezone=auto`;
 
     const [weatherRes, floodRes] = await Promise.all([
@@ -588,17 +589,42 @@ export const CrisisProvider: React.FC<{
     }
 
     const current = data.current;
+    const isDay = current.is_day !== undefined 
+      ? current.is_day === 1 
+      : (new Date().getHours() >= 6 && new Date().getHours() < 19);
+
+    const decodeWeather = (code: number, day: boolean) => {
+      if (code === 0) return day ? 'Clear Sky' : 'Clear Night';
+      if (code === 1) return day ? 'Mainly Clear' : 'Mainly Clear Night';
+      if (code === 2) return day ? 'Partly Cloudy' : 'Partly Cloudy Night';
+      if (code === 3) return 'Overcast';
+      if (code === 45 || code === 48) return 'Dense Fog';
+      if (code >= 51 && code <= 55) return 'Drizzle';
+      if (code >= 61 && code <= 63) return 'Moderate Rain';
+      if (code === 65) return 'Heavy Monsoon Rain';
+      if (code >= 71 && code <= 77) return 'Snow Fall';
+      if (code >= 80 && code <= 82) return day ? 'Rain Showers' : 'Night Rain Showers';
+      if (code >= 95 && code <= 99) return 'Thunderstorm Alert';
+      return day ? 'Cloudy' : 'Cloudy Night';
+    };
+
+    const condition = decodeWeather(current.weather_code ?? 0, isDay);
+    const precipitation = current.precipitation ?? 0;
+    const windGusts = current.wind_gusts_10m ?? 0;
 
     const realWeather: WeatherData = {
       temperature: current.temperature_2m,
       humidity: current.relative_humidity_2m,
-      precipitation: current.precipitation,
+      precipitation,
       windSpeed: current.wind_speed_10m,
-      windGusts: current.wind_gusts_10m,
+      windGusts,
       weatherCode: current.weather_code,
+      condition,
+      isDay,
       time: current.time,
       riverDischargeM3s,
-      floodRiskLevel: (current.precipitation ?? 0) >= 10 ? 'HIGH' : (current.precipitation ?? 0) >= 2 ? 'MODERATE' : 'LOW',
+      flightFeasibility: (windGusts > 45 || precipitation > 15) ? 'RESTRICTED' : (!isDay && precipitation > 2) ? 'CAUTION' : (windGusts > 30 || precipitation > 5) ? 'CAUTION' : 'CLEAR',
+      floodRiskLevel: (precipitation ?? 0) >= 10 ? 'HIGH' : (precipitation ?? 0) >= 2 ? 'MODERATE' : 'LOW',
     };
 
     setWeather(realWeather);

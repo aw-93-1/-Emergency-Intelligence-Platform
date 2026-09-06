@@ -20,7 +20,9 @@ import {
   Globe,
   CloudRain,
   Sun,
+  Moon,
   CloudSun,
+  CloudMoon,
   CloudLightning,
   Wind,
   Droplets,
@@ -781,13 +783,23 @@ export const MapView: React.FC<MapViewProps> = React.memo(({ onDispatchToSector 
                 {/* Primary Temp & Condition Banner */}
                 <div className="flex items-center justify-between bg-slate-900/90 border border-slate-800/90 rounded-xl p-2.5">
                   <div className="flex items-center gap-2.5">
-                    <div className="p-2 rounded-lg bg-cyan-950/70 border border-cyan-700/40 text-cyan-400">
+                    <div className={`p-2 rounded-lg border ${
+                      weather.isDay === false 
+                        ? 'bg-indigo-950/80 border-indigo-700/50 text-indigo-300 shadow-[0_0_12px_rgba(99,102,241,0.25)]' 
+                        : 'bg-cyan-950/70 border-cyan-700/40 text-cyan-400'
+                    }`}>
                       {weather.weatherCode >= 95 ? (
                         <CloudLightning className="w-6 h-6 text-yellow-400 animate-bounce" />
                       ) : weather.precipitation > 0 || weather.weatherCode >= 51 ? (
                         <CloudRain className="w-6 h-6 text-sky-400" />
                       ) : weather.weatherCode >= 1 && weather.weatherCode <= 3 ? (
-                        <CloudSun className="w-6 h-6 text-sky-200" />
+                        weather.isDay === false ? (
+                          <CloudMoon className="w-6 h-6 text-indigo-300" />
+                        ) : (
+                          <CloudSun className="w-6 h-6 text-sky-200" />
+                        )
+                      ) : weather.isDay === false ? (
+                        <Moon className="w-6 h-6 text-indigo-300" />
                       ) : (
                         <Sun className="w-6 h-6 text-amber-400" />
                       )}
