@@ -144,11 +144,12 @@ export const CommanderQwenDrawer: React.FC<CommanderQwenDrawerProps> = ({
 
   const [inputQuery, setInputQuery] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const regionName = activeRegion?.name || 'Rawalpindi / Islamabad';
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'welcome',
       sender: 'qwen',
-      text: `Tactical Operations Center online. I am Commander Qwen, powered by Alibaba Cloud Qwen-2.5 EOC AI.\n\nI have complete real-time access to all telemetry, healthcare facilities, road networks, relief depots, and citizen distress wires for ${activeRegion.name}.\n\n• Available Beds: ${totalFreeBeds} General Beds | ${totalIcuFree} ICU Beds Free across ${hospitals.length} hospitals\n• Active Distress: ${totalTrapped > 0 ? totalTrapped : 23} trapped citizens in ${reports.length} verified incident logs\n• River Hydrology: Lai Gauge @ ${riverLevel.toFixed(1)} ft (Danger threshold: 20.0 ft)\n• Weather: ${weather ? `${weather.temperature}°C, ${weather.condition} (${weather.precipitation} mm/h)` : '24°C, Monsoon active'}\n\nAsk me anything about hospitals, beds, blocked roads, rescue priorities, or relief stockpiles.`,
+      text: `Tactical Operations Center online. I am Commander Qwen, powered by Alibaba Cloud Qwen-2.5 EOC AI.\n\nI have complete real-time access to all telemetry, healthcare facilities, road networks, relief depots, and citizen distress wires for ${regionName}.\n\n• Available Beds: ${totalFreeBeds} General Beds | ${totalIcuFree} ICU Beds Free across ${hospitals.length} hospitals\n• Active Distress: ${totalTrapped > 0 ? totalTrapped : 23} trapped citizens in ${reports.length} verified incident logs\n• River Hydrology: Lai Gauge @ ${riverLevel.toFixed(1)} ft (Danger threshold: 20.0 ft)\n• Weather: ${weather ? `${weather.temperature}°C, ${weather.condition} (${weather.precipitation} mm/h)` : '24°C, Monsoon active'}\n\nAsk me anything about hospitals, beds, blocked roads, rescue priorities, or relief stockpiles.`,
       timestamp: 'LIVE'
     }
   ]);
@@ -159,7 +160,14 @@ export const CommanderQwenDrawer: React.FC<CommanderQwenDrawerProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isGenerating]);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = 'unset';
+      };
+    }
+  }, [isOpen]);
 
   // Complete Knowledge Retrieval & Multi-Intent AI Generation Engine
   const generateQwenResponse = (query: string): { thinking: string; text: string; action?: { label: string; type: 'route' | 'priority' | 'sos' } } => {
@@ -624,12 +632,7 @@ export const CommanderQwenDrawer: React.FC<CommanderQwenDrawerProps> = ({
     }
   };
 
-  useEffect(() => {
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
-  }, []);
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm animate-in fade-in select-none">
@@ -669,7 +672,7 @@ export const CommanderQwenDrawer: React.FC<CommanderQwenDrawerProps> = ({
         <div className="px-4 py-2 bg-slate-950/80 border-b border-white/[0.06] flex items-center justify-between text-[11px] font-mono text-slate-300">
           <span className="flex items-center gap-1 text-cyan-400">
             <Activity className="w-3.5 h-3.5" />
-            <span>Region: {activeRegion.name.split('/')[0]}</span>
+            <span>Region: {activeRegion?.name ? activeRegion.name.split('/')[0] : 'Rawalpindi'}</span>
           </span>
           <span className="text-slate-400">
             Available Beds: <strong className="text-emerald-300">{totalFreeBeds} Beds ({totalIcuFree} ICU)</strong>
